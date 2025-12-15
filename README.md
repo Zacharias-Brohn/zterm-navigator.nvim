@@ -10,7 +10,7 @@ Seamless navigation between Neovim windows and ZTerm terminal panes.
 
 ## Requirements
 
-- [ZTerm](https://github.com/yourusername/zterm) terminal emulator
+- [ZTerm](https://github.com/Zacharias-Brohn/zterm) terminal emulator
 - Neovim 0.7+
 
 ## Installation
@@ -19,7 +19,7 @@ Seamless navigation between Neovim windows and ZTerm terminal panes.
 
 ```lua
 {
-  "yourusername/zterm-navigator",
+  "Zacharias-Brohn/zterm-navigator",
   config = function()
     require("zterm-navigator").setup()
   end,
@@ -30,7 +30,7 @@ Seamless navigation between Neovim windows and ZTerm terminal panes.
 
 ```lua
 use {
-  "yourusername/zterm-navigator",
+  "Zacharias-Brohn/zterm-navigator",
   config = function()
     require("zterm-navigator").setup()
   end,
