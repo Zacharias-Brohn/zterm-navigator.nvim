@@ -145,11 +145,36 @@ function M.test_statusline()
   send_to_tty("\027]51;statusline;\027[38;2;255;100;0mNeovim Test\027[0m\007")
 end
 
+-- Base64 encoding table
+local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+-- Encode a string to base64
+local function base64_encode(data)
+  return ((data:gsub('.', function(x)
+    local r, b = '', x:byte()
+    for i = 8, 1, -1 do r = r .. (b % 2 ^ i - b % 2 ^ (i - 1) > 0 and '1' or '0') end
+    return r
+  end) .. '0000'):gsub('%d%d%d?%d?%d?%d?', function(x)
+    if #x < 6 then return '' end
+    local c = 0
+    for i = 1, 6 do c = c + (x:sub(i, i) == '1' and 2 ^ (6 - i) or 0) end
+    return b64chars:sub(c + 1, c + 1)
+  end) .. ({ '', '==', '=' })[#data % 3 + 1])
+end
+
 -- Send statusline content to ZTerm via OSC 51
+-- Content is base64-encoded to avoid escape sequence interpretation issues
 local function send_statusline(content)
-  -- OSC 51;statusline;<content> ST
-  local osc = string.format("\027]51;statusline;%s\007", content or "")
-  send_to_tty(osc)
+  if content and content ~= "" then
+    -- Base64 encode to avoid neovim interpreting escape sequences
+    local encoded = base64_encode(content)
+    local osc = string.format("\027]51;statusline;b64:%s\007", encoded)
+    send_to_tty(osc)
+  else
+    -- Empty statusline to clear
+    local osc = "\027]51;statusline;\007"
+    send_to_tty(osc)
+  end
 end
 
 -- Clear the ZTerm statusline (restore default)
