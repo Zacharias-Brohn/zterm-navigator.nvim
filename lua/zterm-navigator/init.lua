@@ -35,13 +35,23 @@ M.config = {
   },
 }
 
+-- Send raw escape sequence to the terminal, bypassing neovim's terminal handling
+local function send_to_tty(str)
+  -- Write directly to /dev/tty to bypass neovim's terminal buffer
+  local tty = io.open("/dev/tty", "w")
+  if tty then
+    tty:write(str)
+    tty:flush()
+    tty:close()
+  end
+end
+
 -- Send OSC 51 command to ZTerm for pane navigation
 local function zterm_navigate(direction)
   -- OSC 51;navigate;<direction> ST
   -- Using BEL (\007) as string terminator for better compatibility
   local osc = string.format("\027]51;navigate;%s\007", direction)
-  io.write(osc)
-  io.flush()
+  send_to_tty(osc)
 end
 
 -- Get the window number in a given direction, or 0 if none exists
@@ -122,8 +132,7 @@ end
 local function send_statusline(content)
   -- OSC 51;statusline;<content> ST
   local osc = string.format("\027]51;statusline;%s\007", content or "")
-  io.write(osc)
-  io.flush()
+  send_to_tty(osc)
 end
 
 -- Clear the ZTerm statusline (restore default)
