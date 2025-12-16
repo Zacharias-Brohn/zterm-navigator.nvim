@@ -35,14 +35,28 @@ M.config = {
   },
 }
 
+-- Create a persistent TTY handle for writing escape sequences directly to the terminal.
+-- This bypasses neovim's terminal handling by using libuv to write to stdout.
+local tty_handle = nil
+
+local function get_tty_handle()
+  if tty_handle then
+    return tty_handle
+  end
+  -- Create a TTY handle wrapping stdout (fd 1)
+  -- The second parameter (true) means readable=false (write-only)
+  local handle = vim.loop.new_tty(1, false)
+  if handle then
+    tty_handle = handle
+  end
+  return tty_handle
+end
+
 -- Send raw escape sequence to the terminal, bypassing neovim's terminal handling
 local function send_to_tty(str)
-  -- Write directly to /dev/tty to bypass neovim's terminal buffer
-  local tty = io.open("/dev/tty", "w")
-  if tty then
-    tty:write(str)
-    tty:flush()
-    tty:close()
+  local handle = get_tty_handle()
+  if handle then
+    handle:write(str)
   end
 end
 
@@ -124,8 +138,28 @@ end
 local function is_zterm()
   local term = vim.env.TERM or ""
   local term_program = vim.env.TERM_PROGRAM or ""
+  local zterm_env = vim.env.ZTERM or ""
   -- ZTerm sets TERM to "zterm" or similar
-  return term:match("zterm") or term_program:match("[Zz]term")
+  return term:match("zterm") ~= nil
+    or term_program:match("[Zz]term") ~= nil
+    or zterm_env ~= ""
+end
+
+-- Debug function to test statusline sending
+function M.debug_statusline()
+  local is_in_zterm = is_zterm()
+  print("TERM=" .. (vim.env.TERM or "nil"))
+  print("TERM_PROGRAM=" .. (vim.env.TERM_PROGRAM or "nil"))
+  print("is_zterm=" .. tostring(is_in_zterm))
+  print("statusline_enabled=" .. tostring(M._statusline_enabled))
+  print("Sending test statusline...")
+  send_to_tty("\027]51;statusline;\027[38;2;255;0;0mTEST\027[0m\007")
+  print("Done. Check ZTerm statusline.")
+end
+
+-- Force send a test statusline (for debugging)
+function M.test_statusline()
+  send_to_tty("\027]51;statusline;\027[38;2;255;100;0mNeovim Test\027[0m\007")
 end
 
 -- Send statusline content to ZTerm via OSC 51
