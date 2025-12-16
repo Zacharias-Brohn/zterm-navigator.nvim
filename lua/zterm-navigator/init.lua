@@ -128,23 +128,6 @@ local function is_zterm()
     or zterm_env ~= ""
 end
 
--- Debug function to test statusline sending
-function M.debug_statusline()
-  local is_in_zterm = is_zterm()
-  print("TERM=" .. (vim.env.TERM or "nil"))
-  print("TERM_PROGRAM=" .. (vim.env.TERM_PROGRAM or "nil"))
-  print("is_zterm=" .. tostring(is_in_zterm))
-  print("statusline_enabled=" .. tostring(M._statusline_enabled))
-  print("Sending test statusline...")
-  send_to_tty("\027]51;statusline;\027[38;2;255;0;0mTEST\027[0m\007")
-  print("Done. Check ZTerm statusline.")
-end
-
--- Force send a test statusline (for debugging)
-function M.test_statusline()
-  send_to_tty("\027]51;statusline;\027[38;2;255;100;0mNeovim Test\027[0m\007")
-end
-
 -- Base64 encoding table
 local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
@@ -175,11 +158,6 @@ local function send_statusline(content)
     local osc = "\027]51;statusline;\007"
     send_to_tty(osc)
   end
-end
-
--- Clear the ZTerm statusline (restore default)
-local function clear_statusline()
-  send_statusline("")
 end
 
 -- Get the rendered statusline with ANSI escape codes
@@ -340,14 +318,6 @@ function M.enable_statusline()
     end,
   })
 
-  -- Clear statusline on exit
-  vim.api.nvim_create_autocmd("VimLeavePre", {
-    group = M._statusline_augroup,
-    callback = function()
-      clear_statusline()
-    end,
-  })
-
   -- Initial update
   update_statusline()
 end
@@ -371,9 +341,7 @@ function M.disable_statusline()
     vim.o.laststatus = M._saved_laststatus
     M._saved_laststatus = nil
   end
-
-  -- Clear the ZTerm statusline
-  clear_statusline()
+  -- Note: ZTerm automatically clears the custom statusline when neovim exits
 end
 
 -- Toggle statusline integration
