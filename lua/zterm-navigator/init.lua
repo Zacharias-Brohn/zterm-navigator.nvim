@@ -35,15 +35,12 @@ M.config = {
   },
 }
 
--- Send raw escape sequence to the terminal, bypassing neovim's terminal handling.
--- We spawn a shell process to write directly to the TTY, which bypasses neovim completely.
+-- Send raw escape sequence to the terminal.
+-- For navigation, io.write works fine. For statusline, we need a different approach
+-- to avoid corruption when the content contains escape sequences.
 local function send_to_tty(str)
-  -- Use printf in a subprocess - this writes directly to the terminal
-  -- The subprocess inherits the TTY and can write to it directly
-  vim.fn.jobstart({ 'printf', '%s', str }, {
-    detach = true,
-    on_exit = function() end,
-  })
+  io.write(str)
+  io.flush()
 end
 
 -- Send OSC 51 command to ZTerm for pane navigation
