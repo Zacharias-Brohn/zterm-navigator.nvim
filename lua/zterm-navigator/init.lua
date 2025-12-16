@@ -36,30 +36,31 @@ M.config = {
 }
 
 -- Send raw escape sequence to the terminal, bypassing neovim's terminal handling.
--- We use vim.loop (libuv) to open /dev/tty directly, which gives us a direct
--- connection to the controlling terminal, bypassing neovim's I/O handling.
-local tty_fd = nil
-
-local function get_tty_fd()
-  if tty_fd then
-    return tty_fd
-  end
-  -- Open /dev/tty directly using libuv's fs_open
-  local fd, err = vim.loop.fs_open("/dev/tty", "w", 438) -- 438 = 0666 octal
-  if fd then
-    tty_fd = fd
-  else
-    vim.notify("zterm-navigator: failed to open /dev/tty: " .. (err or "unknown"), vim.log.levels.WARN)
-  end
-  return tty_fd
-end
-
--- Send raw escape sequence to the terminal
+-- We use multiple fallback strategies to find a working method.
 local function send_to_tty(str)
-  local fd = get_tty_fd()
-  if fd then
-    vim.loop.fs_write(fd, str)
+  -- Strategy 1: Use nvim_chan_send to channel 2 (stderr)
+  -- This often bypasses neovim's terminal buffer processing
+  local ok = pcall(vim.api.nvim_chan_send, 2, str)
+  if ok then
+    return
   end
+
+  -- Strategy 2: Write to stderr directly
+  -- stderr is typically unbuffered and may bypass neovim
+  ok = pcall(function()
+    io.stderr:write(str)
+    io.stderr:flush()
+  end)
+  if ok then
+    return
+  end
+
+  -- Strategy 3: Use terminfo/termcap passthrough if available
+  -- This is a last resort
+  pcall(function()
+    io.write(str)
+    io.flush()
+  end)
 end
 
 -- Send OSC 51 command to ZTerm for pane navigation
