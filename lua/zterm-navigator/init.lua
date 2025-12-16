@@ -35,28 +35,30 @@ M.config = {
   },
 }
 
--- Create a persistent TTY handle for writing escape sequences directly to the terminal.
--- This bypasses neovim's terminal handling by using libuv to write to stdout.
-local tty_handle = nil
+-- Send raw escape sequence to the terminal, bypassing neovim's terminal handling.
+-- We use vim.loop (libuv) to open /dev/tty directly, which gives us a direct
+-- connection to the controlling terminal, bypassing neovim's I/O handling.
+local tty_fd = nil
 
-local function get_tty_handle()
-  if tty_handle then
-    return tty_handle
+local function get_tty_fd()
+  if tty_fd then
+    return tty_fd
   end
-  -- Create a TTY handle wrapping stdout (fd 1)
-  -- The second parameter (true) means readable=false (write-only)
-  local handle = vim.loop.new_tty(1, false)
-  if handle then
-    tty_handle = handle
+  -- Open /dev/tty directly using libuv's fs_open
+  local fd, err = vim.loop.fs_open("/dev/tty", "w", 438) -- 438 = 0666 octal
+  if fd then
+    tty_fd = fd
+  else
+    vim.notify("zterm-navigator: failed to open /dev/tty: " .. (err or "unknown"), vim.log.levels.WARN)
   end
-  return tty_handle
+  return tty_fd
 end
 
--- Send raw escape sequence to the terminal, bypassing neovim's terminal handling
+-- Send raw escape sequence to the terminal
 local function send_to_tty(str)
-  local handle = get_tty_handle()
-  if handle then
-    handle:write(str)
+  local fd = get_tty_fd()
+  if fd then
+    vim.loop.fs_write(fd, str)
   end
 end
 
