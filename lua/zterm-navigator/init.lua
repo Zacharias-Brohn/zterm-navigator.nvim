@@ -278,6 +278,26 @@ local function update_statusline()
   end
 end
 
+-- Debounce timer for statusline updates
+local update_timer = nil
+
+-- Schedule a statusline update with debouncing
+local function schedule_update()
+  -- Cancel any pending update
+  if update_timer then
+    update_timer:stop()
+    update_timer:close()
+    update_timer = nil
+  end
+  
+  -- Schedule a new update
+  update_timer = vim.loop.new_timer()
+  update_timer:start(5, 0, vim.schedule_wrap(function()
+    update_timer = nil
+    update_statusline()
+  end))
+end
+
 -- Saved laststatus value to restore on disable
 M._saved_laststatus = nil
 
@@ -313,8 +333,7 @@ function M.enable_statusline()
   vim.api.nvim_create_autocmd(events, {
     group = M._statusline_augroup,
     callback = function()
-      -- Defer slightly to batch rapid updates
-      vim.defer_fn(update_statusline, 10)
+      schedule_update()
     end,
   })
 
