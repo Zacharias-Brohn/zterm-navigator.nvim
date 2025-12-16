@@ -12,7 +12,6 @@ local M = {}
 
 -- Track if statusline integration is active
 M._statusline_enabled = false
-M._statusline_augroup = nil
 
 -- Default configuration
 M.config = {
@@ -266,36 +265,42 @@ local function get_rendered_statusline()
   return table.concat(output)
 end
 
--- Update the ZTerm statusline
-local function update_statusline()
+-- Polling timer for statusline updates
+local poll_timer = nil
+local last_statusline = nil
+
+-- Check if statusline changed and send update if needed
+local function poll_statusline()
   if not M._statusline_enabled then
     return
   end
 
   local content = get_rendered_statusline()
-  if content then
+  if content and content ~= last_statusline then
+    last_statusline = content
     send_statusline(content)
   end
 end
 
--- Debounce timer for statusline updates
-local update_timer = nil
-
--- Schedule a statusline update with debouncing
-local function schedule_update()
-  -- Cancel any pending update
-  if update_timer then
-    update_timer:stop()
-    update_timer:close()
-    update_timer = nil
+-- Start polling for statusline changes
+local function start_polling()
+  if poll_timer then
+    return
   end
-  
-  -- Schedule a new update
-  update_timer = vim.loop.new_timer()
-  update_timer:start(5, 0, vim.schedule_wrap(function()
-    update_timer = nil
-    update_statusline()
-  end))
+
+  poll_timer = vim.loop.new_timer()
+  -- Poll every 25ms
+  poll_timer:start(0, 25, vim.schedule_wrap(poll_statusline))
+end
+
+-- Stop polling
+local function stop_polling()
+  if poll_timer then
+    poll_timer:stop()
+    poll_timer:close()
+    poll_timer = nil
+  end
+  last_statusline = nil
 end
 
 -- Saved laststatus value to restore on disable
@@ -315,31 +320,8 @@ function M.enable_statusline()
     vim.o.laststatus = 0
   end
 
-  -- Create autocommands for statusline updates
-  M._statusline_augroup = vim.api.nvim_create_augroup("ZTermStatusline", { clear = true })
-
-  -- Events that should trigger a statusline update
-  local events = {
-    "ModeChanged",      -- Mode changes (normal, insert, visual, etc.)
-    "BufEnter",         -- Entering a buffer
-    "BufWritePost",     -- After writing a file
-    "FileChangedShellPost",
-    "WinEnter",         -- Entering a window
-    "CursorMoved",      -- Cursor moved (for position info)
-    "CursorMovedI",     -- Cursor moved in insert mode
-    "DiagnosticChanged", -- LSP diagnostics changed
-  }
-
-  vim.api.nvim_create_autocmd(events, {
-    group = M._statusline_augroup,
-    callback = function()
-      -- Use vim.schedule to defer until after the event is fully processed
-      vim.schedule(update_statusline)
-    end,
-  })
-
-  -- Initial update
-  update_statusline()
+  -- Start polling for statusline changes
+  start_polling()
 end
 
 -- Disable statusline integration
@@ -350,11 +332,8 @@ function M.disable_statusline()
 
   M._statusline_enabled = false
 
-  -- Remove autocommands
-  if M._statusline_augroup then
-    vim.api.nvim_del_augroup_by_id(M._statusline_augroup)
-    M._statusline_augroup = nil
-  end
+  -- Stop polling
+  stop_polling()
 
   -- Restore neovim's statusline
   if M._saved_laststatus then
