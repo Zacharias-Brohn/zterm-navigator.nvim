@@ -333,7 +333,7 @@ function M.enable_statusline()
   vim.api.nvim_create_autocmd(events, {
     group = M._statusline_augroup,
     callback = function()
-      schedule_update()
+      update_statusline()
     end,
   })
 
