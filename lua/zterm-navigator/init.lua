@@ -36,31 +36,14 @@ M.config = {
 }
 
 -- Send raw escape sequence to the terminal, bypassing neovim's terminal handling.
--- We use multiple fallback strategies to find a working method.
+-- We spawn a shell process to write directly to the TTY, which bypasses neovim completely.
 local function send_to_tty(str)
-  -- Strategy 1: Use nvim_chan_send to channel 2 (stderr)
-  -- This often bypasses neovim's terminal buffer processing
-  local ok = pcall(vim.api.nvim_chan_send, 2, str)
-  if ok then
-    return
-  end
-
-  -- Strategy 2: Write to stderr directly
-  -- stderr is typically unbuffered and may bypass neovim
-  ok = pcall(function()
-    io.stderr:write(str)
-    io.stderr:flush()
-  end)
-  if ok then
-    return
-  end
-
-  -- Strategy 3: Use terminfo/termcap passthrough if available
-  -- This is a last resort
-  pcall(function()
-    io.write(str)
-    io.flush()
-  end)
+  -- Use printf in a subprocess - this writes directly to the terminal
+  -- The subprocess inherits the TTY and can write to it directly
+  vim.fn.jobstart({ 'printf', '%s', str }, {
+    detach = true,
+    on_exit = function() end,
+  })
 end
 
 -- Send OSC 51 command to ZTerm for pane navigation
